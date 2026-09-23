@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reloj internacional</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:#fff;color:#111;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:32px 20px 48px}
+h1{font-size:1.6rem;font-weight:600;margin:0 0 4px}
+p.sub{margin:0 0 24px;color:#666}
+.crumbs{display:flex;gap:8px;align-items:center;margin-bottom:20px;font-size:.95rem;flex-wrap:wrap}
+.crumbs button{background:none;border:0;padding:4px 0;color:#0a58ca;cursor:pointer;font:inherit}
+.crumbs span{color:#666}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.grid button{padding:14px 12px;border:1px solid #d5d5d5;background:#fff;border-radius:8px;font:inherit;text-align:left;cursor:pointer;color:#111}
+.grid button:hover{border-color:#111}
+button:focus-visible{outline:2px solid #0a58ca;outline-offset:2px}
+.clock{text-align:center;padding:48px 0 16px}
+.time{font-size:clamp(3rem,16vw,6rem);font-weight:300;font-variant-numeric:tabular-nums;letter-spacing:.02em;line-height:1}
+.city{font-size:1.3rem;font-weight:600;margin-bottom:24px}
+.date{margin-top:20px;color:#444;text-transform:capitalize}
+.tz{margin-top:6px;color:#888;font-size:.9rem}
+:root{--bg:#ffffff;--fg:#111111}
+body{background:var(--bg);color:var(--fg)}
+p.sub,.date,.tz{color:var(--fg);opacity:.7}
+.crumbs button{color:var(--fg);text-decoration:underline}
+.crumbs span{color:var(--fg);opacity:.6}
+.grid button{background:var(--bg);color:var(--fg);border-color:color-mix(in srgb,var(--fg) 30%,transparent)}
+.grid button:hover{border-color:var(--fg)}
+#bg{position:fixed;inset:0;z-index:-1;overflow:hidden}
+#media{position:absolute;inset:0}
+#media img,#media video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+#bg.contain img,#bg.contain video{object-fit:contain}
+body.media h1,body.media .sub,body.media .crumbs,body.media .city,body.media .time,body.media .date,body.media .tz{text-shadow:0 1px 3px rgba(0,0,0,.6),0 2px 14px rgba(0,0,0,.45);opacity:1}
+body.media .grid button{background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(6px)}
+#dim{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none}
+#gear,#gear2{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);right:12px;z-index:5;width:42px;height:42px;border-radius:50%;border:1px solid color-mix(in srgb,var(--fg) 30%,transparent);background:var(--bg);color:var(--fg);font-size:1.2rem;cursor:pointer}
+#panel,#play{position:fixed;top:calc(env(safe-area-inset-top,0px) + 62px);right:12px;z-index:5;width:min(320px,calc(100% - 24px));max-height:calc(100% - 90px);overflow:auto;background:var(--bg);color:var(--fg);border:1px solid color-mix(in srgb,var(--fg) 30%,transparent);border-radius:10px;padding:16px;display:none}
+#panel.open,#play.open{display:block}
+#panel h2,#play h2{font-size:1rem;margin:0 0 12px}
+#panel .row,#play .row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;font-size:.95rem}
+#panel button.opt,#panel label.opt,#play button.opt{border:1px solid color-mix(in srgb,var(--fg) 30%,transparent);background:var(--bg);color:var(--fg);border-radius:8px;padding:8px 12px;font:inherit;cursor:pointer}
+#panel button.opt:hover,#panel label.opt:hover,#play button.opt:hover{border-color:var(--fg)}
+#panel input[type=color]{width:48px;height:32px;border:1px solid #888;padding:0;background:none;cursor:pointer}
+#panel input[type=range]{width:140px}
+#panel small,#play small{display:block;opacity:.65;font-size:.8rem;line-height:1.4}
+#gear2{right:62px}
+main{position:relative;z-index:1}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+#toys{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+#play button.opt[aria-pressed=true]{background:var(--fg);color:var(--bg)}
+@keyframes quake{0%,100%{transform:translate(0,0)}10%{transform:translate(-9px,5px)}20%{transform:translate(8px,-6px)}30%{transform:translate(-7px,-4px)}40%{transform:translate(9px,6px)}50%{transform:translate(-8px,3px)}60%{transform:translate(6px,-7px)}70%{transform:translate(-5px,6px)}80%{transform:translate(7px,-3px)}90%{transform:translate(-4px,4px)}}
+body.quake main,body.quake #bg{animation:quake .45s linear infinite}
+</style>
+</head>
+<body>
+<main>
+  <h1>Reloj internacional</h1>
+  <p class="sub" id="sub">Elige un país</p>
+  <div class="crumbs" id="crumbs"></div>
+  <div id="view"></div>
+</main>
+<div id="bg"><div id="media"></div><div id="dim"></div></div>
+<canvas id="fx"></canvas>
+<button id="gear2" aria-label="Sala de juegos" aria-expanded="false">🎮</button>
+<button id="gear" aria-label="Personalizar" aria-expanded="false">⚙</button>
+<div id="panel" role="dialog" aria-label="Personalizar">
+  <h2>Personalizar</h2>
+  <div class="row"><span>Modo</span><span><button class="opt" id="m-claro">Claro</button> <button class="opt" id="m-noche">Noche</button></span></div>
+  <div class="row"><label for="c-bg">Color de fondo</label><input type="color" id="c-bg"></div>
+  <div class="row"><label for="c-fg">Color del texto</label><input type="color" id="c-fg"></div>
+  <div class="row"><span>Ajuste</span><span><button class="opt" id="fit-cover">Llenar</button> <button class="opt" id="fit-contain">Completa</button></span></div>
+  <div class="row"><label for="r-dim">Oscurecer fondo</label><input type="range" id="r-dim" min="0" max="80"></div>
+  <div class="row"><label class="opt" for="f-media">Cargar imagen o vídeo</label><button class="opt" id="b-clear">Quitar</button></div>
+  <input type="file" id="f-media" accept="image/*,video/*" hidden>
+  <small id="note">La imagen o el vídeo de fondo no se guarda al cerrar la página; los colores sí.</small>
+</div>
+<div id="play" role="dialog" aria-label="Sala de juegos">
+  <h2>Sala de juegos</h2>
+  <div id="toys"></div>
+  <div class="row"><button class="opt" id="b-quake">🌋 Terremoto</button><button class="opt" id="b-off">Apagar todo</button></div>
+  <small>Activa varios a la vez. En el juego, tu gato corre sobre la hora y salta los obstáculos.</small>
+</div>
+<script>
+const DATA = {
+  "España": [["Madrid","Europe/Madrid"],["Barcelona","Europe/Madrid"],["Sevilla","Europe/Madrid"],["Las Palmas","Atlantic/Canary"]],
+  "México": [["Ciudad de México","America/Mexico_City"],["Monterrey","America/Monterrey"],["Cancún","America/Cancun"],["Tijuana","America/Tijuana"]],
+  "Argentina": [["Buenos Aires","America/Argentina/Buenos_Aires"],["Córdoba","America/Argentina/Cordoba"],["Mendoza","America/Argentina/Mendoza"]],
+  "Colombia": [["Bogotá","America/Bogota"],["Medellín","America/Bogota"],["Cali","America/Bogota"]],
+  "Chile": [["Santiago","America/Santiago"],["Valparaíso","America/Santiago"],["Punta Arenas","America/Punta_Arenas"]],
+  "Perú": [["Lima","America/Lima"],["Cusco","America/Lima"],["Arequipa","America/Lima"]],
+  "Estados Unidos": [["Nueva York","America/New_York"],["Chicago","America/Chicago"],["Denver","America/Denver"],["Los Ángeles","America/Los_Angeles"],["Honolulu","Pacific/Honolulu"]],
+  "Canadá": [["Toronto","America/Toronto"],["Vancouver","America/Vancouver"],["Calgary","America/Edmonton"],["Halifax","America/Halifax"]],
+  "Brasil": [["São Paulo","America/Sao_Paulo"],["Río de Janeiro","America/Sao_Paulo"],["Manaos","America/Manaus"]],
+  "Reino Unido": [["Londres","Europe/London"],["Mánchester","Europe/London"],["Edimburgo","Europe/London"]],
+  "Francia": [["París","Europe/Paris"],["Marsella","Europe/Paris"],["Lyon","Europe/Paris"]],
+  "Alemania": [["Berlín","Europe/Berlin"],["Múnich","Europe/Berlin"],["Hamburgo","Europe/Berlin"]],
+  "Italia": [["Roma","Europe/Rome"],["Milán","Europe/Rome"],["Nápoles","Europe/Rome"]],
+  "Rusia": [["Moscú","Europe/Moscow"],["Ekaterimburgo","Asia/Yekaterinburg"],["Novosibirsk","Asia/Novosibirsk"],["Vladivostok","Asia/Vladivostok"]],
+  "India": [["Nueva Delhi","Asia/Kolkata"],["Bombay","Asia/Kolkata"],["Bangalore","Asia/Kolkata"]],
+  "China": [["Pekín","Asia/Shanghai"],["Shanghái","Asia/Shanghai"],["Hong Kong","Asia/Hong_Kong"]],
+  "Japón": [["Tokio","Asia/Tokyo"],["Osaka","Asia/Tokyo"],["Sapporo","Asia/Tokyo"]],
+  "Australia": [["Sídney","Australia/Sydney"],["Perth","Australia/Perth"],["Brisbane","Australia/Brisbane"],["Adelaida","Australia/Adelaide"]],
+  "Sudáfrica": [["Johannesburgo","Africa/Johannesburg"],["Ciudad del Cabo","Africa/Johannesburg"],["Durban","Africa/Johannesburg"]],
+  "Egipto": [["El Cairo","Africa/Cairo"],["Alejandría","Africa/Cairo"],["Luxor","Africa/Cairo"]]
+};
+
+const view = document.getElementById('view');
+const crumbs = document.getElementById('crumbs');
+const sub = document.getElementById('sub');
+let timer = null, current = null;
+
+function stop(){ if(timer){ clearTimeout(timer); timer = null; } current = null; }
+
+function showCountries(){
+  stop();
+  sub.textContent = 'Elige un país';
+  crumbs.innerHTML = '';
+  view.innerHTML = '<div class="grid"></div>';
+  const g = view.firstChild;
+  Object.keys(DATA).forEach(c => {
+    const b = document.createElement('button');
+    b.textContent = c;
+    b.onclick = () => showCities(c);
+    g.appendChild(b);
+  });
+}
+
+function setCrumbs(items){
+  crumbs.innerHTML = '';
+  items.forEach((it, i) => {
+    if(i) { const s = document.createElement('span'); s.textContent = '/'; crumbs.appendChild(s); }
+    if(it.fn){ const b = document.createElement('button'); b.textContent = it.label; b.onclick = it.fn; crumbs.appendChild(b); }
+    else { const s = document.createElement('span'); s.textContent = it.label; crumbs.appendChild(s); }
+  });
+}
+
+function showCities(country){
+  stop();
+  sub.textContent = 'Elige una ciudad de ' + country;
+  setCrumbs([{label:'Países', fn:showCountries},{label:country}]);
+  view.innerHTML = '<div class="grid"></div>';
+  const g = view.firstChild;
+  DATA[country].forEach(([name, tz]) => {
+    const b = document.createElement('button');
+    b.textContent = name;
+    b.onclick = () => showClock(country, name, tz);
+    g.appendChild(b);
+  });
+}
+
+function showClock(country, name, tz){
+  stop();
+  sub.textContent = '';
+  setCrumbs([{label:'Países', fn:showCountries},{label:country, fn:() => showCities(country)},{label:name}]);
+  view.innerHTML = '<div class="clock"><div class="city"></div><div class="time" id="t">--:--:--</div><div class="date" id="d"></div><div class="tz" id="z"></div></div>';
+  view.querySelector('.city').textContent = name + ', ' + country;
+  const tf = new Intl.DateTimeFormat('es-ES', {timeZone:tz, hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23'});
+  const df = new Intl.DateTimeFormat('es-ES', {timeZone:tz, weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  const zf = new Intl.DateTimeFormat('es-ES', {timeZone:tz, timeZoneName:'longOffset'});
+  const token = {};
+  current = token;
+  const t = document.getElementById('t'), d = document.getElementById('d'), z = document.getElementById('z');
+  function tick(){
+    if(current !== token) return;
+    const now = Date.now();
+    const dt = new Date(now);
+    t.textContent = tf.format(dt);
+    d.textContent = df.format(dt);
+    const off = zf.formatToParts(dt).find(p => p.type === 'timeZoneName');
+    z.textContent = tz.replace(/_/g,' ') + (off ? ' · ' + off.value : '');
+    // sincroniza con el siguiente cambio de segundo del sistema
+    timer = setTimeout(tick, 1000 - (now % 1000) + 5);
+  }
+  tick();
+}
+
+/* ---- Personalización ---- */
+const $ = id => document.getElementById(id);
+const KEY = 'reloj-ajustes';
+const PRESETS = { claro:{bg:'#ffffff',fg:'#111111'}, noche:{bg:'#0b0b0f',fg:'#f2f2f2'} };
+let S = { bg:'#ffffff', fg:'#111111', dim:0, fit:'cover' };
+try { Object.assign(S, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch(e) {}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {} }
+function apply(){
+  const r = document.documentElement.style;
+  r.setProperty('--bg', S.bg); r.setProperty('--fg', S.fg);
+  $('dim').style.opacity = S.dim / 100;
+  $('bg').classList.toggle('contain', S.fit === 'contain');
+  $('c-bg').value = S.bg; $('c-fg').value = S.fg; $('r-dim').value = S.dim;
+}
+apply();
+
+$('gear').onclick = () => {
+  const o = $('panel').classList.toggle('open');
+  $('gear').setAttribute('aria-expanded', o);
+};
+['claro','noche'].forEach(m => $('m-'+m).onclick = () => { S.bg = PRESETS[m].bg; S.fg = PRESETS[m].fg; apply(); save(); });
+$('c-bg').oninput = e => { S.bg = e.target.value; apply(); save(); };
+$('c-fg').oninput = e => { S.fg = e.target.value; apply(); save(); };
+$('r-dim').oninput = e => { S.dim = +e.target.value; apply(); save(); };
+
+['cover','contain'].forEach(m => $('fit-'+m).onclick = () => { S.fit = m; apply(); save(); });
+function clearMedia(){ $('media').innerHTML = ''; $('f-media').value = ''; document.body.classList.remove('media'); }
+$('b-clear').onclick = clearMedia;
+$('f-media').onchange = e => {
+  const f = e.target.files[0];
+  if(!f) return;
+  const isVideo = f.type.startsWith('video/');
+  const readData = cb => { const fr = new FileReader(); fr.onload = () => cb(fr.result); fr.readAsDataURL(f); };
+  const show = el => { $('media').innerHTML = ''; $('media').appendChild(el); document.body.classList.add('media'); if(S.dim < 25){ S.dim = 25; apply(); save(); } };
+  if(isVideo){
+    const v = document.createElement('video');
+    v.autoplay = v.loop = v.muted = v.playsInline = true;
+    let retried = false;
+    v.onerror = () => { if(retried) return; retried = true; readData(d => { v.src = d; v.play().catch(()=>{}); }); };
+    try { v.src = URL.createObjectURL(f); } catch(err) { v.onerror(); }
+    show(v); v.play().catch(()=>{});
+  } else if(f.type.startsWith('image/')){
+    readData(d => { const i = document.createElement('img'); i.alt = ''; i.src = d; show(i); });
+  }
+};
+
+/* ---- Sala de juegos ---- */
+const cv = $('fx'), cx = cv.getContext('2d');
+let W = 0, H = 0;
+function resize(){ const d = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight; cv.width = W*d; cv.height = H*d; cx.setTransform(d,0,0,d,0,0); }
+resize(); addEventListener('resize', resize);
+const E = {sun:0,clouds:0,rain:0,snow:0,storm:0,meteors:0,confetti:0,bubbles:0,sparks:0,game:0};
+const R = (a,b) => a + Math.random()*(b-a);
+const cnt = (rate,dt) => { const n = rate*dt; return Math.floor(n) + (Math.random() < n%1 ? 1 : 0); };
+const step = (arr,dt,f) => { for(let i=arr.length-1;i>=0;i--) if(f(arr[i],dt)===false) arr.splice(i,1); };
+let drops=[],flakes=[],clouds=[],meteors=[],conf=[],bubs=[],sparks=[],bolt=null,flash=0,nb=1,mt=0,rot=0,running=false,last=0;
+const G = {y:0,vy:0,obs:[],score:0,over:0,t:1,speed:320,best:0};
+
+function shake(ms){ document.body.classList.add('quake'); clearTimeout(shake.t); shake.t = setTimeout(() => document.body.classList.remove('quake'), ms); try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} }
+function burst(x,y,n,h1,h2){ for(let i=0;i<n;i++){ const a=R(0,6.28), s=R(80,340); sparks.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-80,life:R(.5,1),h:R(h1,h2)}); } }
+function gameStart(){ G.y=0; G.vy=0; G.obs=[]; G.score=0; G.over=0; G.speed=320; G.t=1; }
+function jump(){ if(!E.game) return; if(G.over){ gameStart(); return; } if(G.y===0) G.vy = 800; }
+function wake(){ if(!running){ running = true; last = performance.now(); requestAnimationFrame(frame); } }
+const busy = () => Object.values(E).some(Boolean) || drops.length+flakes.length+meteors.length+conf.length+bubs.length+sparks.length > 0 || flash > 0 || bolt;
+
+function drawCloud(c,col){ cx.fillStyle = col; cx.strokeStyle = 'rgba(0,0,0,.08)'; cx.beginPath();
+  [[0,0,.8],[.8,-.4,1],[1.7,-.1,.9],[2.4,.1,.7],[1.2,.3,.9]].forEach(([a,b,r]) => { cx.moveTo(c.x+a*c.s+r*c.s*.5, c.y+b*c.s); cx.arc(c.x+a*c.s, c.y+b*c.s, r*c.s*.5, 0, 7); });
+  cx.fill(); }
+
+function frame(t){
+  const dt = Math.min((t-last)/1000, .05); last = t;
+  cx.clearRect(0,0,W,H);
+  if(E.sun){ rot += dt*.3; const x=W*.85, y=H*.14, r=Math.min(W,H)*.07;
+    const g = cx.createRadialGradient(x,y,r*.5,x,y,r*4); g.addColorStop(0,'rgba(255,220,80,.5)'); g.addColorStop(1,'rgba(255,220,80,0)'); cx.fillStyle = g; cx.fillRect(0,0,W,H);
+    cx.save(); cx.translate(x,y); cx.rotate(rot); cx.strokeStyle='#ffc933'; cx.lineWidth=r*.12; cx.lineCap='round';
+    for(let i=0;i<12;i++){ cx.rotate(Math.PI/6); cx.beginPath(); cx.moveTo(r*1.3,0); cx.lineTo(r*1.8,0); cx.stroke(); } cx.restore();
+    cx.fillStyle='#ffd23f'; cx.beginPath(); cx.arc(x,y,r,0,7); cx.fill(); }
+  if(E.clouds || E.storm){ if(!clouds.length) for(let i=0;i<7;i++) clouds.push({x:R(0,W),y:R(20,H*.38),s:R(40,75),v:R(10,35)});
+    clouds.forEach(c => { c.x += c.v*dt; if(c.x > W+50) c.x = -c.s*3; drawCloud(c, E.storm ? '#59606e' : '#e3eaf2'); }); }
+  if(E.storm){ nb -= dt; if(nb <= 0){ nb = R(2,6); let x=R(W*.1,W*.9), y=0; const pts=[[x,y]]; while(y < H*.65){ x += R(-40,40); y += R(25,60); pts.push([x,y]); } bolt = {pts,life:.3}; flash = .55; shake(350); } }
+  if(flash > 0){ cx.fillStyle = 'rgba(255,255,255,'+flash+')'; cx.fillRect(0,0,W,H); flash = Math.max(0, flash-dt*2); }
+  if(bolt){ bolt.life -= dt; if(bolt.life <= 0) bolt = null; else { cx.save(); cx.strokeStyle='rgba(255,250,200,'+Math.min(1,bolt.life*4)+')'; cx.lineWidth=3; cx.shadowColor='#8cf'; cx.shadowBlur=20; cx.beginPath(); bolt.pts.forEach((p,i) => i ? cx.lineTo(p[0],p[1]) : cx.moveTo(p[0],p[1])); cx.stroke(); cx.restore(); } }
+  if(E.rain || E.storm){ for(let i=cnt(W*(E.storm?1.8:1.1),dt);i>0;i--) drops.push({x:R(-100,W+100),y:-20,v:R(650,950)}); }
+  cx.strokeStyle='rgba(90,140,210,.7)'; cx.lineWidth=1.3; cx.beginPath();
+  step(drops,dt,d => { d.y += d.v*dt; d.x -= d.v*.18*dt; cx.moveTo(d.x,d.y); cx.lineTo(d.x+3,d.y-16); return d.y < H+20; }); cx.stroke();
+  if(E.snow){ for(let i=cnt(W*.12,dt);i>0;i--) flakes.push({x:R(0,W),y:-10,r:R(1.5,4),v:R(40,90),p:R(0,6)}); }
+  cx.fillStyle='rgba(215,232,250,.95)'; cx.strokeStyle='rgba(100,140,190,.6)'; cx.lineWidth=1;
+  step(flakes,dt,f => { f.y += f.v*dt; f.p += dt*2; const x = f.x+Math.sin(f.p)*14; cx.beginPath(); cx.arc(x,f.y,f.r,0,7); cx.fill(); cx.stroke(); return f.y < H+10; });
+  if(E.meteors){ mt -= dt; if(mt <= 0){ mt = R(.5,1.4); meteors.push({x:R(W*.3,W*1.1),y:-30,vx:-R(200,380),vy:R(450,700)}); } }
+  step(meteors,dt,m => { m.x += m.vx*dt; m.y += m.vy*dt; const L=.12, g=cx.createLinearGradient(m.x,m.y,m.x-m.vx*L,m.y-m.vy*L);
+    g.addColorStop(0,'#ffb347'); g.addColorStop(1,'rgba(255,120,0,0)'); cx.strokeStyle=g; cx.lineWidth=6; cx.lineCap='round'; cx.beginPath(); cx.moveTo(m.x,m.y); cx.lineTo(m.x-m.vx*L,m.y-m.vy*L); cx.stroke();
+    cx.fillStyle='#fff3c4'; cx.beginPath(); cx.arc(m.x,m.y,5,0,7); cx.fill();
+    if(m.y > H-30){ burst(m.x,H-20,28,10,50); shake(250); return false; } return m.x > -60; });
+  if(E.confetti){ for(let i=cnt(W*.08,dt);i>0;i--) conf.push({x:R(0,W),y:-10,v:R(80,170),p:R(0,6),h:R(0,360),a:R(0,6)}); }
+  step(conf,dt,c => { c.y += c.v*dt; c.p += dt*3; c.a += dt*5; cx.save(); cx.translate(c.x+Math.sin(c.p)*20,c.y); cx.rotate(c.a); cx.fillStyle='hsl('+c.h+',85%,55%)'; cx.fillRect(-3,-5,6,10); cx.restore(); return c.y < H+10; });
+  if(E.bubbles){ for(let i=cnt(5,dt);i>0;i--) bubs.push({x:R(0,W),y:H+30,r:R(6,26),v:R(30,90),p:R(0,6)}); }
+  step(bubs,dt,b => { b.y -= b.v*dt; b.p += dt*2; const x=b.x+Math.sin(b.p)*10; cx.strokeStyle='rgba(120,190,240,.9)'; cx.fillStyle='rgba(190,230,255,.2)'; cx.lineWidth=1.5; cx.beginPath(); cx.arc(x,b.y,b.r,0,7); cx.fill(); cx.stroke();
+    cx.beginPath(); cx.arc(x-b.r*.35,b.y-b.r*.35,b.r*.2,0,7); cx.fillStyle='rgba(255,255,255,.8)'; cx.fill(); return b.y > -40; });
+  step(sparks,dt,s => { s.life -= dt; s.vy += 500*dt; s.x += s.vx*dt; s.y += s.vy*dt; cx.globalAlpha = Math.max(0,s.life); cx.fillStyle='hsl('+s.h+',95%,55%)'; cx.beginPath(); cx.arc(s.x,s.y,3,0,7); cx.fill(); cx.globalAlpha = 1; return s.life > 0; });
+  if(E.game){
+    const tm = document.querySelector('.time'), gy = tm ? Math.min(Math.max(tm.getBoundingClientRect().top-4,170),H-50) : H-70, px = Math.min(W*.18,140);
+    if(!G.over){ G.score += dt*10; G.speed = 320 + G.score*2.5; G.vy -= 2300*dt; G.y += G.vy*dt; if(G.y <= 0){ G.y = 0; G.vy = 0; }
+      G.t -= dt; if(G.t <= 0){ G.t = R(.9,1.6)*(320/G.speed)+.45; G.obs.push({x:W+30,e:['🌵','🪨','🔥'][Math.floor(R(0,3))]}); }
+      step(G.obs,dt,o => { o.x -= G.speed*dt; if(G.y < 26 && o.x+8 < px+34 && o.x+30 > px+8){ G.over = 1; G.best = Math.max(G.best,Math.floor(G.score)); } return o.x > -50; }); }
+    cx.strokeStyle = S.fg; cx.globalAlpha = .5; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(0,gy); cx.lineTo(W,gy); cx.stroke(); cx.globalAlpha = 1;
+    cx.font = '40px system-ui'; cx.textBaseline = 'bottom'; cx.textAlign = 'left';
+    G.obs.forEach(o => cx.fillText(o.e,o.x,gy)); cx.fillText('🐈',px,gy-G.y);
+    cx.fillStyle = S.fg; cx.textAlign = 'center'; cx.font = '600 15px system-ui';
+    cx.fillText('Toca o pulsa espacio para saltar · Puntos '+Math.floor(G.score)+' · Récord '+G.best, W/2, H-14);
+    if(G.over){ cx.font = '700 22px system-ui'; cx.fillText('¡Chocaste! Toca para reintentar', W/2, gy-90); }
+  }
+  if(busy()) requestAnimationFrame(frame); else running = false;
+}
+
+const TOYS = [['sun','☀️','Sol'],['clouds','☁️','Nubes'],['rain','🌧️','Lluvia'],['snow','❄️','Nieve'],['storm','⛈️','Tormenta'],['meteors','☄️','Meteoritos'],['confetti','🎉','Confeti'],['bubbles','🫧','Burbujas'],['sparks','✨','Chispas al tocar'],['game','🐈','Juego: salta']];
+const toys = $('toys');
+TOYS.forEach(([k,ic,name]) => { const b = document.createElement('button'); b.className='opt'; b.textContent = ic+' '+name; b.setAttribute('aria-pressed','false');
+  b.onclick = () => { E[k] = E[k] ? 0 : 1; b.setAttribute('aria-pressed', !!E[k]); if(k==='game' && E[k]) gameStart(); wake(); }; toys.appendChild(b); });
+$('b-quake').onclick = () => shake(2500);
+$('b-off').onclick = () => { Object.keys(E).forEach(k => E[k] = 0); toys.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed','false')); drops=[];flakes=[];meteors=[];conf=[];bubs=[];sparks=[];bolt=null;flash=0; wake(); };
+$('gear2').onclick = () => { $('panel').classList.remove('open'); const o = $('play').classList.toggle('open'); $('gear2').setAttribute('aria-expanded', o); };
+$('gear').addEventListener('click', () => $('play').classList.remove('open'));
+addEventListener('pointerdown', e => { if(e.target.closest('button,label,input,#panel,#play')) return; if(E.sparks){ burst(e.clientX,e.clientY,22,0,360); wake(); } jump(); });
+addEventListener('keydown', e => { if((e.code==='Space' || e.code==='ArrowUp') && E.game){ e.preventDefault(); jump(); } });
+
+showCountries();
+</script>
+
+</body>
+</html>
